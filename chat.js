@@ -5,7 +5,7 @@
 
 import { buildHeaders, getToken } from './auth.js';
 
-const CHAT_BASE = 'http://localhost:3000/api/ai/health-chat';
+const CHAT_BASE = 'https://dev.thanhhaishopwebsite.id.vn/api/ai/health-chat';
 
 /** Session đang active */
 export let currentSessionId = null;
