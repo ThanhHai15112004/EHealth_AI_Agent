@@ -235,6 +235,29 @@ export async function endSession() {
     }
 }
 
+/** Xóa phiên tư vấn (soft delete) */
+export async function deleteSession(sessionId) {
+    try {
+        const res = await fetch(`${CHAT_BASE}/sessions/${sessionId}`, {
+            method: 'DELETE',
+            headers: buildHeaders(),
+        });
+        if (res.status === 401) { handleAuthError(); return { success: false, message: 'Phiên đăng nhập hết hạn.' }; }
+        const result = await res.json();
+        if (result.success) {
+            // Nếu xóa phiên đang active → reset
+            if (currentSessionId === sessionId) {
+                currentSessionId = null;
+            }
+            await loadSessions();
+        }
+        return result;
+    } catch (e) {
+        onSessionError?.(e.message);
+        return { success: false, message: e.message };
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 // FEEDBACK
 // ═══════════════════════════════════════════════════════════
