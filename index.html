@@ -244,6 +244,7 @@
             justify-content: space-between;
             align-items: center;
             transition: background 0.15s;
+            position: relative;
         }
         .session-item:hover { background: var(--chat-bg); color: var(--text); }
         .session-item.active { background: var(--chat-bg); color: var(--text); }
@@ -256,6 +257,18 @@
         .status-ACTIVE   { background: rgba(16,163,127,0.2); color: var(--accent); }
         .status-COMPLETED{ background: rgba(142,142,142,0.2); color: var(--text-muted); }
         .status-EXPIRED  { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+        /* Nút xóa phiên trên sidebar */
+        .btn-delete-session-item {
+            background: none; border: none;
+            color: var(--text-muted); cursor: pointer;
+            font-size: 0.85rem; padding: 2px 4px;
+            border-radius: 4px; flex-shrink: 0;
+            margin-left: 4px; opacity: 0;
+            transition: all 0.15s;
+        }
+        .session-item:hover .btn-delete-session-item { opacity: 1; }
+        .btn-delete-session-item:hover { color: var(--danger); background: rgba(239,68,68,0.15); }
 
         .sidebar-footer {
             padding: 10px 14px;
@@ -274,7 +287,7 @@
         }
         .chat-header-left h4 { font-size: 0.9rem; }
         .chat-header-left p  { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
-        .btn-end-session {
+        .btn-end-session, .btn-delete-session {
             padding: 5px 12px;
             background: transparent;
             border: 1px solid var(--border);
@@ -283,7 +296,9 @@
             font-size: 0.78rem;
             transition: all 0.2s;
         }
-        .btn-end-session:hover { border-color: var(--danger); color: var(--danger); }
+        .btn-end-session:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-delete-session:hover { border-color: var(--danger); color: var(--danger); }
+        .chat-header-actions { display: flex; gap: 6px; }
 
         /* ═══ MESSAGES ═══ */
         .messages-container {
@@ -628,7 +643,10 @@
             <h4 id="chatTitle">Phiên tư vấn</h4>
             <p id="chatSubtitle">AI Tư Vấn Sức Khỏe</p>
         </div>
-        <button class="btn-end-session" id="btnEndSession" onclick="doEndSession()">Kết thúc phiên ✓</button>
+        <div class="chat-header-actions">
+            <button class="btn-end-session" id="btnEndSession" onclick="doEndSession()">Kết thúc ✓</button>
+            <button class="btn-delete-session" id="btnDeleteSession" onclick="doDeleteCurrentSession()">Xóa 🗑</button>
+        </div>
     </div>
 
     <!-- Welcome -->
@@ -672,7 +690,7 @@
 <script type="module">
     import { login, logout, isLoggedIn, getUserInfo, buildHeaders, getToken } from './auth.js';
     import {
-        sendMessage, loadSessions, loadSession, resetSession, endSession,
+        sendMessage, loadSessions, loadSession, resetSession, endSession, deleteSession,
         setChatCallbacks, currentSessionId, submitFeedback
     } from './chat.js';
 
@@ -684,6 +702,8 @@
     window.doNewChat      = doNewChat;
     window.doSendMessage  = doSendMessage;
     window.doEndSession   = doEndSession;
+    window.doDeleteCurrentSession = doDeleteCurrentSession;
+    window.doDeleteSession = doDeleteSession;
     window.quickStart     = quickStart;
     window.handleFeedback = handleFeedback;
 
@@ -795,6 +815,7 @@
             div.innerHTML = `
                 <span class="session-code" title="${s.session_code}">${s.session_code}</span>
                 <span class="session-status status-${s.status}">${s.status === 'ACTIVE' ? 'Active' : s.status === 'COMPLETED' ? 'Done' : s.status}</span>
+                <button class="btn-delete-session-item" onclick="event.stopPropagation(); doDeleteSession('${s.session_id}')" title="Xóa phiên">🗑</button>
             `;
             div.onclick = () => doLoadSession(s.session_id);
             list.appendChild(div);
@@ -842,6 +863,7 @@
         document.getElementById('chatHeader').style.display = 'flex';
         document.getElementById('chatTitle').textContent = title || 'Phiên tư vấn';
         document.getElementById('btnEndSession').style.display = showEnd ? 'inline-block' : 'none';
+        document.getElementById('btnDeleteSession').style.display = 'inline-block';
     }
 
     function quickStart(message) {
@@ -870,6 +892,26 @@
         await endSession();
         document.getElementById('btnEndSession').style.display = 'none';
         showToast('Phiên đã kết thúc.');
+    }
+
+    /** Xóa phiên theo sessionId (từ sidebar) */
+    async function doDeleteSession(sessionId) {
+        if (!confirm('Xóa phiên tư vấn này? Phiên sẽ bị ẩn khỏi danh sách.')) return;
+        const result = await deleteSession(sessionId);
+        if (result?.success) {
+            showToast('Đã xóa phiên.', 'success');
+            // Nếu đang xem phiên bị xóa → quay về welcome
+            if (!currentSessionId) doNewChat();
+        } else {
+            showToast(result?.message || 'Lỗi xóa phiên.', 'error');
+        }
+    }
+
+    /** Xóa phiên hiện tại đang mở (từ header button) */
+    async function doDeleteCurrentSession() {
+        if (!currentSessionId) return;
+        await doDeleteSession(currentSessionId);
+        doNewChat();
     }
 
     // ─── MESSAGE CALLBACKS ────────────────────────────────────
